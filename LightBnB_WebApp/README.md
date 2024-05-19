@@ -1,5 +1,9 @@
 # LightBnB
 
+A simple multi-page Airbnb clone that uses server-side Javascript to display the information from queries to web pages via SQL queries.
+
+No time to stretch, gotta keep running.
+
 ## Project Structure
 
 ```

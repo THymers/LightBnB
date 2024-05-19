@@ -1,6 +1,16 @@
 const properties = require("./json/properties.json");
 const users = require("./json/users.json");
 
+// Import the pg library
+const { Pool } = require("pg");
+
+const pool = new Pool({
+  user: "user",
+  host: "localhost",
+  database: "lightbnb",
+  port: 5432,
+});
+
 /// Users
 
 /**
@@ -118,15 +128,50 @@ const getAllReservations = function (guest_id, limit = 10) {
  * @return {Promise<[{}]>}  A promise to the properties.
  */
 
-const getAllProperties = (options, limit = 10) => {
+const getAllProperties = function (options, limit = 10) {
+  const queryParams = [];
+  let queryString = `
+    SELECT properties.*, AVG(property_reviews.rating) AS average_rating
+    FROM properties
+    JOIN property_reviews ON properties.id = property_reviews.property_id
+  `;
+  if (options.owner_id) {
+    queryParams.push(options.owner_id);
+    queryString += `WHERE owner_id = $${queryParams.length} `;
+  }
+  if (options.minimum_price_per_night && options.maximum_price_per_night) {
+    const minPriceCents = options.minimum_price_per_night * 100;
+    const maxPriceCents = options.maximum_price_per_night * 100;
+    queryParams.push(minPriceCents);
+    queryParams.push(maxPriceCents);
+    queryString += `${options.owner_id ? "AND" : "WHERE"} cost_per_night >= $${
+      queryParams.length - 1
+    } AND cost_per_night <= $${queryParams.length} `;
+  }
+  if (options.minimum_rating) {
+    queryParams.push(options.minimum_rating);
+    queryString += `${
+      options.owner_id ||
+      (options.minimum_price_per_night && options.maximum_price_per_night)
+        ? "AND"
+        : "WHERE"
+    } AVG(property_reviews.rating) >= $${queryParams.length} `;
+  }
+  queryString += `GROUP BY properties.id`;
+  queryString += `
+    ORDER BY cost_per_night
+    LIMIT $${queryParams.length + 1};
+  `;
+  queryParams.push(limit);
+  console.log(queryString, queryParams);
   return pool
-    .query(`SELECT * FROM properties LIMIT $1`, [limit])
+    .query(queryString, queryParams)
     .then((result) => {
-      console.log(result.rows);
       return result.rows;
     })
     .catch((err) => {
-      console.log(err.message);
+      console.error("Error executing query", err.stack);
+      throw err;
     });
 };
 
@@ -135,8 +180,8 @@ const getAllProperties = (options, limit = 10) => {
  * @param {{}} property An object containing all of the property details.
  * @return {Promise<{}>} A promise to the property.
  */
+
 const addProperty = function (property) {
-const addProperty = function(property) {
   const {
     owner_id,
     title,
@@ -151,11 +196,12 @@ const addProperty = function(property) {
     country,
     parking_spaces,
     number_of_bathrooms,
-    number_of_bedrooms
+    number_of_bedrooms,
   } = property;
 
-  return pool.query(
-    `
+  return pool
+    .query(
+      `
     INSERT INTO properties (
       owner_id,
       title,
@@ -174,33 +220,33 @@ const addProperty = function(property) {
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
     RETURNING *;
   `,
-    [
-      owner_id,
-      title,
-      description,
-      thumbnail_photo_url,
-      cover_photo_url,
-      cost_per_night,
-      street,
-      city,
-      province,
-      post_code,
-      country,
-      parking_spaces,
-      number_of_bathrooms,
-      number_of_bedrooms
-    ]
-  )
-  .then((result) => {
-    return result.rows[0];
-  })
-  .catch((err) => {
-    console.error('Error executing query', err.stack);
-    throw err;
-  });
+      [
+        owner_id,
+        title,
+        description,
+        thumbnail_photo_url,
+        cover_photo_url,
+        cost_per_night,
+        street,
+        city,
+        province,
+        post_code,
+        country,
+        parking_spaces,
+        number_of_bathrooms,
+        number_of_bedrooms,
+      ]
+    )
+    .then((result) => {
+      return result.rows[0];
+    })
+    .catch((err) => {
+      console.error("Error executing query", err.stack);
+      throw err;
+    });
 };
 
-
+// Export all functions
 module.exports = {
   getUserWithEmail,
   getUserWithId,
@@ -209,15 +255,3 @@ module.exports = {
   getAllProperties,
   addProperty,
 };
-
-// Import the pg library
-const { Pool } = require("pg");
-
-const pool = new Pool({
-  user: "user",
-  host: "localhost",
-  database: "lightbnb",
-  port: 5432,
-});
-
-module.exports = pool;

@@ -29,10 +29,6 @@ app.get("/test", (req, res) => {
   res.send("🤗");
 });
 
-app.listen(port, (err) => {
-  console.log(err || `listening on port ${port} 😎`);
-});
-
 //get all properties
 app.get("/properties", (req, res) => {
   const limit = req.query.limit ? parseInt(req.query.limit) : 10;
