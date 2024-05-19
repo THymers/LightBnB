@@ -32,3 +32,20 @@ app.get("/test", (req, res) => {
 app.listen(port, (err) => {
   console.log(err || `listening on port ${port} 😎`);
 });
+
+//get all properties
+app.get("/properties", (req, res) => {
+  const limit = req.query.limit ? parseInt(req.query.limit) : 10;
+
+  getAllProperties({}, limit)
+    .then((properties) => {
+      res.json(properties);
+    })
+    .catch((err) => {
+      res.status(500).json({ error: err.message });
+    });
+});
+
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+});
