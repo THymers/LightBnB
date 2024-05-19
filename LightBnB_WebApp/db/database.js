@@ -91,7 +91,7 @@ const addUser = function (user) {
     })
     .catch((err) => {
       console.error("Error executing query", err.stack);
-      throw err;
+      return Promise.reject(err);
     });
 };
 
